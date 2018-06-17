@@ -23,6 +23,7 @@ struct socow_vector {
 
     size_t size() const;
     unsigned int* get_data();
+    unsigned int* get_data_unsafe();
     unsigned int const* get_data() const;
 
     bool empty() const;

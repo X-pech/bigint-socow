@@ -47,7 +47,8 @@ void big_integer::len_prepare(const size_t &new_size) {
 }
 
 bool big_integer::is_zero() const {
-    return (length() == 1 && get_digit(0) == 0);
+    const ui &z = data[0];
+    return (length() == 1 && z == 0);
 }
 
 void big_integer::shrink_zeroes() {
@@ -60,18 +61,8 @@ void big_integer::shrink_zeroes() {
     }
 }
 
-ui big_integer::get_digit(const size_t &i) const {
-    return (i < length() ? data[i] : 0);
-}
-
 ui big_integer::back() const {
     return data.back();
-}
-
-void big_integer::set_digit(const size_t &i, const unsigned int &val) {
-    if (i < length()) {
-        data[i] = val;
-    }
 }
 
 void big_integer::reverse_digits() {
@@ -114,24 +105,34 @@ int8_t comp_abs(big_integer const &a, big_integer const &b) {
     }
 
     size_t m = a.length();
+    const ui* adata_ptr = a.data.get_data();
+    const ui* bdata_ptr = b.data.get_data();
     for (size_t i = 0; i < m; i++) {
-        if (a.data[m - i - 1] != b.data[m - i - 1]) {
-            return (a.data[m - i - 1] < b.data[m - i - 1] ? -1 : 1);
+        if (adata_ptr[m - i - 1] != bdata_ptr[m - i - 1]) {
+            return (adata_ptr[m - i - 1] < bdata_ptr[m - i - 1] ? -1 : 1);
         }
     }
     return 0;
 }
 
 void big_integer::add_abs(const big_integer &r, const size_t &offset) {
-    len_prepare(r.length() + offset);
+    len_prepare(r.length() + offset + 1);
     ui* data_ptr = data.get_data();
+    const ui* rdata_ptr = r.data.get_data();
     ui64 cf = 0;
-    for (size_t i = offset; i < length(); i++) {
+    for (size_t i = offset; i < r.length() + offset; i++) {
         cf += data_ptr[i];
-        cf += r.get_digit(i - offset);
+        cf += rdata_ptr[i - offset];
         data_ptr[i] = suic(cf);
         cf >>= POWER;
     }
+
+    for (size_t i = r.length() + offset; i < length() && (cf > 0); i++) {
+        cf += data_ptr[i];
+        data_ptr[i] = suic(cf);
+        cf >>= POWER;
+    }
+
     if (cf) {
         data.push_back(suic(cf));
     }
@@ -143,8 +144,19 @@ void big_integer::sub_abs(const big_integer &l, const big_integer &r) {
     bool cf = false;
     ui* data_ptr = data.get_data();
     ui const* ldata_ptr = l.data.get_data();
-    for (size_t i = 0; i < l.length(); i++) {
-        s = si64c(ldata_ptr[i]) - r.get_digit(i) - si64c(cf);
+    ui const* rdata_ptr = r.data.get_data();
+    for (size_t i = 0; i < r.length(); i++) {
+        s = si64c(ldata_ptr[i]) - rdata_ptr[i] - si64c(cf);
+        if (s < 0) {
+            cf = true;
+            s += BASE;
+        } else {
+            cf = false;
+        }
+        data_ptr[i] = suic(s);
+    }
+    for (size_t i = r.length(); i < l.length() && cf; i++) {
+        s = si64c(ldata_ptr[i]) - si64c(cf);
         if (s < 0) {
             cf = true;
             s += BASE;
@@ -238,8 +250,9 @@ void big_integer::mul_short(const big_integer &a, const unsigned int &x) {
     ui* data_ptr = data.get_data();
 
     ui64 cf = 0;
+    const ui* adata_ptr = a.data.get_data();
     for (size_t i = 0; i < alo; i++) {
-        cf = sui64c(a.data[i]) * sui64c(x) + cf;
+        cf = sui64c(adata_ptr[i]) * sui64c(x) + cf;
         data_ptr[i] = suic(cf);
         cf >>= POWER;
     }
@@ -259,8 +272,9 @@ big_integer &big_integer::operator*=(big_integer const &rhs) {
     data = socow_vector(1);
     big_integer temp;
     temp.len_prepare(rhs.length() + 1);
+    const ui* rhsdata_ptr = rhs.data.get_data();
     for (size_t j = 0; j < rhs.length(); j++) {
-        temp.mul_short(copy, rhs.get_digit(j));
+        temp.mul_short(copy, rhsdata_ptr[j]);
         add_abs(temp, j);
     }
     sign = copy.sign ^ rhs.sign;
@@ -306,8 +320,9 @@ big_integer big_integer::divide(const big_integer &rhs, const bool &mode) {
         }
     }
 
+    const ui* rhsdata_ptr = rhs.data.get_data();
     if (rhs.length() == 1) {
-        ui rem = div_short(rhs.get_digit(0));
+        ui rem = div_short(rhsdata_ptr[0]);
         sign = ls ^ rs;
         if (mode) {
             big_integer rem_big(rem);
@@ -337,12 +352,15 @@ big_integer big_integer::divide(const big_integer &rhs, const bool &mode) {
     big_integer r;
     r.resize(n);
 
+    const ui* data_ptr = data.get_data();
+    ui* rdata_ptr = r.data.get_data();
+    ui* qdata_ptr = q.data.get_data();
     for (size_t i = 0; i < n; i++) {
-        r.data[i] = data[length() - n + i];
+        rdata_ptr[i] = data_ptr[length() - n + i];
     }
 
     if (r > b) {
-        q.data[m] = 1;
+        qdata_ptr[m] = 1;
         r -= b;
     }
 
@@ -351,15 +369,16 @@ big_integer big_integer::divide(const big_integer &rhs, const bool &mode) {
     for (size_t i = m; i > 0; i--) {
         j = i - 1;
         r <<= POWER;
-        r.data[0] = data[length() - n + j - m];
-        q.data[j] = suic(((sui64c(r.get_digit(r.length() - 1)) << POWER) + r.get_digit(r.length() - 2)) /
+        rdata_ptr = r.data.get_data_unsafe();
+        rdata_ptr[0] = data_ptr[length() - n + j - m];
+        qdata_ptr[j] = suic(((sui64c(rdata_ptr[r.length() - 1]) << POWER) + (r.length() > 1 ? rdata_ptr[r.length() - 2] : 0)) /
                          sui64c(b.data.back()));
 
         c = b;
-        c.mul_short(c, q.data[j]);
+        c.mul_short(c, qdata_ptr[j]);
         r -= c;
         while (r.sign) {
-            q.data[j]--;
+            qdata_ptr[j]--;
             r += b;
         }
     }
@@ -396,10 +415,12 @@ big_integer &big_integer::bit_gen(const big_integer &rhs, FunctorT functor) {
     big_integer r = rhs;
     r.bit_prepare(*this);
     bit_prepare(r);
+    ui* data_ptr =  data.get_data();
+    const ui* rdata_ptr = r.data.get_data();
     for (size_t i = 0; i < rhs.length(); i++) {
-        data[i] = functor(get_digit(i), r.get_digit(i));
+        data_ptr[i] = functor(data_ptr[i], rdata_ptr[i]);
     }
-    ~r;
+    r.~big_integer();
     sign = functor(sign, rhs.sign);
     if (sign) {
         recomplem_two();
@@ -445,11 +466,13 @@ big_integer &big_integer::operator>>=(int rhs) {
     size_t shift = rhs % POWER;
     ui64 cf = 0;
 
-    for (size_t i = 0; i < length() - fulls; i++) {
-        cf = sui64c(data[i]);
-        cf |= sui64c(get_digit(i + 1)) << POWER;
-        data[i] = suic(cf >> shift);
+    ui* data_ptr = data.get_data();
+    for (size_t i = 0; i < length() - fulls - 1; i++) {
+        cf = sui64c(data_ptr[i]);
+        cf |= sui64c(data_ptr[i + 1]) << POWER;
+        data_ptr[i] = suic(cf >> shift);
     }
+    data_ptr[length() - fulls - 1] = suic(data_ptr[length() - fulls - 1] >> shift);
 
     data.resize(length() - fulls);
 

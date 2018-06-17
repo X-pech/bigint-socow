@@ -77,6 +77,7 @@ size_t socow_vector::size() const { return __size; }
 
 unsigned int* socow_vector::get_data() { cowchk(); return current_cell; }
 unsigned int const* socow_vector::get_data() const { return current_cell; }
+unsigned int* socow_vector::get_data_unsafe() { return current_cell; }
 
 bool socow_vector::empty() const { return __size == 0; }
 
