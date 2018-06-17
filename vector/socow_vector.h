@@ -22,6 +22,8 @@ struct socow_vector {
     void resize(size_t size);
 
     size_t size() const;
+    unsigned int* get_data();
+    unsigned int const* get_data() const;
 
     bool empty() const;
 
@@ -59,7 +61,7 @@ private:
         size_t capacity;
 
         big_obj()
-                : big_obj(static_cast<unsigned int*>(nullptr), 0) {}
+                : big_obj(nullptr, 0) {}
 
         big_obj(unsigned int *p, size_t c)
                 : ptr(p, std::default_delete<unsigned int[]>()), capacity(c) {}

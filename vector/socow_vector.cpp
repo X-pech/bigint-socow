@@ -75,6 +75,9 @@ void socow_vector::resize(size_t size) {
 
 size_t socow_vector::size() const { return __size; }
 
+unsigned int* socow_vector::get_data() { cowchk(); return current_cell; }
+unsigned int const* socow_vector::get_data() const { return current_cell; }
+
 bool socow_vector::empty() const { return __size == 0; }
 
 void socow_vector::cowchk() {
