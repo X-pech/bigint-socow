@@ -59,7 +59,7 @@ private:
         size_t capacity;
 
         big_obj()
-                : ptr(nullptr, std::default_delete<unsigned int[]>()), capacity(0) {}
+                : big_obj(static_cast<unsigned int*>(nullptr), 0) {}
 
         big_obj(unsigned int *p, size_t c)
                 : ptr(p, std::default_delete<unsigned int[]>()), capacity(c) {}

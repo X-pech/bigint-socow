@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <iosfwd>
 #include <algorithm>
+#include <cmath>
 #include <vector/socow_vector.h>
 
 struct big_integer {
