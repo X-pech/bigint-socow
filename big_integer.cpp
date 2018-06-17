@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <stdexcept>
+#include <cmath>
 
 typedef unsigned int ui;
 typedef unsigned long long ui64;
@@ -114,8 +115,8 @@ int8_t comp_abs(big_integer const &a, big_integer const &b) {
 
     size_t m = a.length();
     for (size_t i = 0; i < m; i++) {
-        if (a.get_digit(m - i - 1) != b.get_digit(m - i - 1)) {
-            return (a.get_digit(m - i - 1) < b.get_digit(m - i - 1) ? -1 : 1);
+        if (a.data[m - i - 1] != b.data[m - i - 1]) {
+            return (a.data[m - i - 1] < b.data[m - i - 1] ? -1 : 1);
         }
     }
     return 0;
@@ -123,11 +124,12 @@ int8_t comp_abs(big_integer const &a, big_integer const &b) {
 
 void big_integer::add_abs(const big_integer &r, const size_t &offset) {
     len_prepare(r.length() + offset);
+    ui* data_ptr = data.get_data();
     ui64 cf = 0;
-    for (size_t i = 0; i < length(); i++) {
-        cf += data[i];
-        cf += (i - offset < 0 ? 0 : r.get_digit(i - offset));
-        data[i] = suic(cf);
+    for (size_t i = offset; i < length(); i++) {
+        cf += data_ptr[i];
+        cf += r.get_digit(i - offset);
+        data_ptr[i] = suic(cf);
         cf >>= POWER;
     }
     if (cf) {
@@ -139,15 +141,17 @@ void big_integer::add_abs(const big_integer &r, const size_t &offset) {
 void big_integer::sub_abs(const big_integer &l, const big_integer &r) {
     i64 s = 0;
     bool cf = false;
+    ui* data_ptr = data.get_data();
+    ui const* ldata_ptr = l.data.get_data();
     for (size_t i = 0; i < l.length(); i++) {
-        s = si64c(l.get_digit(i)) - r.get_digit(i) - si64c(cf);
+        s = si64c(ldata_ptr[i]) - r.get_digit(i) - si64c(cf);
         if (s < 0) {
             cf = true;
             s += BASE;
         } else {
             cf = false;
         }
-        data[i] = suic(s);
+        data_ptr[i] = suic(s);
     }
 }
 
@@ -231,17 +235,18 @@ big_integer &big_integer::operator-=(big_integer const &rhs) {
 void big_integer::mul_short(const big_integer &a, const unsigned int &x) {
     size_t alo = a.length();
     len_prepare(alo + 3);
+    ui* data_ptr = data.get_data();
 
     ui64 cf = 0;
     for (size_t i = 0; i < alo; i++) {
-        cf = sui64c(a.get_digit(i)) * sui64c(x) + cf;
-        data[i] = suic(cf);
+        cf = sui64c(a.data[i]) * sui64c(x) + cf;
+        data_ptr[i] = suic(cf);
         cf >>= POWER;
     }
     if (cf) {
-        data[alo] = suic(cf);
+        data_ptr[alo] = suic(cf);
     } else {
-        data[alo] = 0;
+        data_ptr[alo] = 0;
     }
     shrink_zeroes();
 }
@@ -268,9 +273,10 @@ ui big_integer::div_short(const unsigned int &a) {
         throw "Division by zero!";
     }
     ui64 cf = 0, res;
+    ui* data_ptr = data.get_data();
     for (size_t i = data.size(); i > 0; i--) {
-        res = suic(data[i - 1]) + (cf << POWER);
-        data[i - 1] = suic(res / a);
+        res = suic(data_ptr[i - 1]) + (cf << POWER);
+        data_ptr[i - 1] = suic(res / a);
         cf = (res % a);
     }
     shrink_zeroes();
@@ -420,14 +426,15 @@ big_integer &big_integer::operator<<=(int rhs) {
     ui64 cf = 0;
     size_t os = data.size();
     resize(os + fulls + 1);
+    ui* data_ptr = data.get_data();
     for (size_t i = os; i > 0; i--) {
-        cf = sui64c(data[i + fulls]) << POWER;
-        cf |= sui64c(data[i - 1]) << shift;
-        data[i + fulls] = suic(cf >> POWER);
-        data[i - 1 + fulls] = suic(cf);
+        cf = sui64c(data_ptr[i + fulls]) << POWER;
+        cf |= sui64c(data_ptr[i - 1]) << shift;
+        data_ptr[i + fulls] = suic(cf >> POWER);
+        data_ptr[i - 1 + fulls] = suic(cf);
     }
     for (size_t i = fulls; i > 0; i--) {
-        data[i - 1] = 0;
+        data_ptr[i - 1] = 0;
     }
     shrink_zeroes();
     return *this;
